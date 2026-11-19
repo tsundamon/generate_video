@@ -92,10 +92,11 @@ def save_base64_to_file(base64_data, temp_dir, output_filename):
     
 def queue_prompt(prompt):
     import shutil, uuid
+    compile_map = {}
     for node_id, node in prompt.items():
         if not isinstance(node, dict):
             continue
-        class_type = node.get("class_type")
+        class_type = node.get("class_type", "")
         inputs = node.get("inputs", {})
         # 1. LoadImage: ComfyUI/input フォルダ外パス拒否対策
         if class_type == "LoadImage":
@@ -121,6 +122,28 @@ def queue_prompt(prompt):
                 inputs.setdefault("batch_size", 1)
                 inputs.setdefault("torch_compile", False)
                 inputs.setdefault("dtype", "float32")
+        # 3. TorchCompile系ノードの検出（PyTorch 2.8 + 最新ComfyUIのFP8量子化エラー回避）
+        elif "TorchCompile" in class_type:
+            model_link = inputs.get("model")
+            if isinstance(model_link, list) and len(model_link) == 2:
+                compile_map[str(node_id)] = model_link
+
+    if compile_map:
+        def _resolve_link(link):
+            visited = set()
+            while isinstance(link, list) and len(link) == 2 and str(link[0]) in compile_map and str(link[0]) not in visited:
+                visited.add(str(link[0]))
+                link = compile_map[str(link[0])]
+            return link
+
+        for node in prompt.values():
+            if not isinstance(node, dict):
+                continue
+            for k, v in list(node.get("inputs", {}).items()):
+                if isinstance(v, list) and len(v) == 2 and str(v[0]) in compile_map:
+                    node["inputs"][k] = _resolve_link(v)
+        for cid in compile_map:
+            prompt.pop(cid, None)
     url = f"http://{server_address}:8188/prompt"
     logger.info(f"Queueing prompt to: {url}")
     p = {"prompt": prompt, "client_id": client_id}
