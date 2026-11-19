@@ -48,4 +48,14 @@ COPY config.ini /ComfyUI/user/default/ComfyUI-Manager/config.ini
 COPY extra_model_paths.yaml /ComfyUI/extra_model_paths.yaml
 RUN chmod +x /entrypoint.sh
 
+# カスタムLoRA 3種類（計6ファイル）の組み込み
+RUN mkdir -p /runpod-volume/loras /ComfyUI/models/loras && \
+    wget -O "/runpod-volume/loras/DR34ML4Y_All_In_One_NSFW_high.safetensors" "https://civitai.red/api/download/models/2553151?fileId=2441563?token=c879d68b49e0b217aee0cf61001d03e0" && \
+    wget -O "/runpod-volume/loras/DR34ML4Y_All_In_One_NSFW_low.safetensors" "https://civitai.red/api/download/models/2553271?fileId=2441662?token=c879d68b49e0b217aee0cf61001d03e0" && \
+    wget -O "/runpod-volume/loras/Wan_2.2_Close-Up_Facial_Cumshots_high.safetensors" "https://civitai.red/api/download/models/2772088?fileId=2658091?token=c879d68b49e0b217aee0cf61001d03e0" && \
+    wget -O "/runpod-volume/loras/Wan_2.2_Close-Up_Facial_Cumshots_low.safetensors" "https://civitai.red/api/download/models/2772322?fileId=2658308?token=c879d68b49e0b217aee0cf61001d03e0" && \
+    wget -O "/runpod-volume/loras/Ultimate_DeepThroat_I2V_high.safetensors" "https://civitai.red/api/download/models/2325788?fileId=2215936?token=c879d68b49e0b217aee0cf61001d03e0" && \
+    wget -O "/runpod-volume/loras/Ultimate_DeepThroat_I2V_low.safetensors" "https://civitai.red/api/download/models/2191446?fileId=2084409?token=c879d68b49e0b217aee0cf61001d03e0" && \
+    ln -sf /runpod-volume/loras/*.safetensors /ComfyUI/models/loras/
+
 CMD ["/entrypoint.sh"]
