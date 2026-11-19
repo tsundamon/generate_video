@@ -91,6 +91,36 @@ def save_base64_to_file(base64_data, temp_dir, output_filename):
         raise Exception(f"Base64 디코딩 실패: {e}")
     
 def queue_prompt(prompt):
+    import shutil, uuid
+    for node_id, node in prompt.items():
+        if not isinstance(node, dict):
+            continue
+        class_type = node.get("class_type")
+        inputs = node.get("inputs", {})
+        # 1. LoadImage: ComfyUI/input フォルダ外パス拒否対策
+        if class_type == "LoadImage":
+            img_path = inputs.get("image", "")
+            if isinstance(img_path, str) and img_path.startswith("/") and os.path.exists(img_path):
+                os.makedirs("/ComfyUI/input", exist_ok=True)
+                new_name = f"{uuid.uuid4().hex}_{os.path.basename(img_path)}"
+                shutil.copy(img_path, f"/ComfyUI/input/{new_name}")
+                inputs["image"] = new_name
+        # 2. RIFE VFI: 最新版ノードで追加された必須入力の自動補完
+        elif class_type == "RIFE VFI":
+            try:
+                info_req = urllib.request.urlopen("http://127.0.0.1:8188/object_info/RIFE%20VFI", timeout=5)
+                req_spec = json.loads(info_req.read()).get("RIFE VFI", {}).get("input", {}).get("required", {})
+                for key in ("batch_size", "torch_compile", "dtype"):
+                    if key not in inputs and key in req_spec:
+                        spec = req_spec[key]
+                        if len(spec) >= 2 and isinstance(spec[1], dict) and "default" in spec[1]:
+                            inputs[key] = spec[1]["default"]
+                        elif isinstance(spec[0], list) and spec[0]:
+                            inputs[key] = spec[0][0]
+            except Exception:
+                inputs.setdefault("batch_size", 1)
+                inputs.setdefault("torch_compile", False)
+                inputs.setdefault("dtype", "float32")
     url = f"http://{server_address}:8188/prompt"
     logger.info(f"Queueing prompt to: {url}")
     p = {"prompt": prompt, "client_id": client_id}
