@@ -91,6 +91,17 @@ def save_base64_to_file(base64_data, temp_dir, output_filename):
         raise Exception(f"Base64 디코딩 실패: {e}")
     
 def queue_prompt(prompt):
+    import glob
+    if os.path.isdir("/opt/custom_loras"):
+        os.makedirs("/runpod-volume/loras", exist_ok=True)
+        os.makedirs("/ComfyUI/models/loras", exist_ok=True)
+        for src in glob.glob("/opt/custom_loras/*.safetensors"):
+            fname = os.path.basename(src)
+            for dst_dir in ("/runpod-volume/loras", "/ComfyUI/models/loras"):
+                dst = os.path.join(dst_dir, fname)
+                if os.path.lexists(dst):
+                    os.remove(dst)
+                os.symlink(src, dst)
     import shutil, uuid
     compile_map = {}
     for node_id, node in prompt.items():
